@@ -225,23 +225,3 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
 chrome.tabs.onRemoved.addListener((tabId) => {
   tabActiveState.delete(tabId);
 });
-
-chrome.runtime.onInstalled.addListener(async () => {
-  const tabs = await chrome.tabs.query({ url: ['http://*/*', 'https://*/*'] });
-  for (const tab of tabs) {
-    try {
-      await chrome.scripting.executeScript({
-        target: { tabId: tab.id, allFrames: true },
-        files: [
-          'shared/i18n.js',
-          'content/dom-utils.js',
-          'content/selector.js',
-          'content/overlay.js',
-          'content/content.js'
-        ]
-      });
-    } catch (_e) {
-      // chrome://, about:, 확장 페이지 등 주입 불가 탭은 무시
-    }
-  }
-});

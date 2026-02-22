@@ -87,6 +87,14 @@
     { labelKey: 'popup_shortcut_add', win: 'Enter', mac: 'Enter' },
     { labelKey: 'popup_shortcut_newline', win: 'Shift+Enter', mac: 'Shift+Enter' }
   ];
+  const CONTENT_SCRIPT_FILES = [
+    'shared/i18n.js',
+    'content/dom-utils.js',
+    'content/selector.js',
+    'content/overlay.js',
+    'content/content.js'
+  ];
+  let contentScriptStatus = 'unknown';
 
   function t(key, vars, fallback) {
     return window.__AGT_I18N.t(key, vars, fallback);
@@ -148,7 +156,7 @@
   // ──────────────────────────────────────────
   // content script 메시지 전송
   // ──────────────────────────────────────────
-  function sendToContent(message) {
+  function sendToContentRaw(message) {
     return new Promise((resolve) => {
       if (!currentTabId) {
         resolve(null);
@@ -162,6 +170,47 @@
         }
       });
     });
+  }
+
+  async function ensureContentScriptReady() {
+    if (!currentTabId) return false;
+    if (contentScriptStatus === 'ready') return true;
+    if (contentScriptStatus === 'unavailable') return false;
+
+    const ping = await sendToContentRaw({ type: 'PING' });
+    if (ping && ping.ok) {
+      contentScriptStatus = 'ready';
+      return true;
+    }
+
+    try {
+      await chrome.scripting.executeScript({
+        target: { tabId: currentTabId, allFrames: true },
+        files: CONTENT_SCRIPT_FILES
+      });
+    } catch (_err) {
+      contentScriptStatus = 'unavailable';
+      return false;
+    }
+
+    const retryPing = await sendToContentRaw({ type: 'PING' });
+    contentScriptStatus = retryPing && retryPing.ok ? 'ready' : 'unavailable';
+    return contentScriptStatus === 'ready';
+  }
+
+  async function sendToContent(message) {
+    const response = await sendToContentRaw(message);
+    if (response !== null) {
+      contentScriptStatus = 'ready';
+      return response;
+    }
+
+    if (!message || message.type === 'PING') return null;
+
+    const ready = await ensureContentScriptReady();
+    if (!ready) return null;
+
+    return sendToContentRaw(message);
   }
 
   async function initI18n() {
@@ -1034,6 +1083,17 @@
     chrome.tabs.query({ active: true, currentWindow: true }, async (tabs) => {
       if (!tabs || !tabs[0]) return;
       currentTabId = tabs[0].id;
+      contentScriptStatus = 'unknown';
+
+      const ready = await ensureContentScriptReady();
+      if (!ready) {
+        statusUrl.textContent = tabs[0].url || '—';
+        toggleBtn.disabled = true;
+        markerToggleBtn.disabled = true;
+        toggleLabel.textContent = t('popup_toggle_unavailable', null, 'Not available on this page');
+        return;
+      }
+
       await initHighlightColorPreference();
       await initMarkerVisibilityPreference();
 

@@ -6,6 +6,9 @@
 (function () {
   'use strict';
 
+  if (window.__AGT_CONTENT_INITIALIZED__) return;
+  window.__AGT_CONTENT_INITIALIZED__ = true;
+
   // ──────────────────────────────────────────
   // 상태
   // ──────────────────────────────────────────
@@ -473,6 +476,11 @@
   // ──────────────────────────────────────────
   chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
     const { type, payload } = message || {};
+
+    if (type === 'PING') {
+      sendResponse({ ok: true });
+      return false;
+    }
 
     if (type === 'I18N_REFRESH') {
       void syncI18nState().then((state) => {
