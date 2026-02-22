@@ -45,6 +45,13 @@
   const searchColorPalette = document.getElementById('searchColorPalette');
   const resetHighlightColorsBtn = document.getElementById('resetHighlightColorsBtn');
   const languageSelect = document.getElementById('languageSelect');
+  const webhookEnabledInput = document.getElementById('webhookEnabledInput');
+  const webhookUrlInput = document.getElementById('webhookUrlInput');
+  const saveWebhookBtn = document.getElementById('saveWebhookBtn');
+  const webhookDetailToggleBtn = document.getElementById('webhookDetailToggleBtn');
+  const webhookDetailPanel = document.getElementById('webhookDetailPanel');
+  const webhookHeadersInput = document.getElementById('webhookHeadersInput');
+  const webhookTestBtn = document.getElementById('webhookTestBtn');
 
   let clearAllDefaultText = '';
   let clearAllDefaultTitle = '';
@@ -54,11 +61,18 @@
 
   const HIGHLIGHT_COLOR_STORAGE_KEY = 'agt_highlight_colors';
   const MARKER_VISIBILITY_STORAGE_KEY = 'agt_marker_visibility';
+  const WEBHOOK_CONFIG_STORAGE_KEY = 'agt_webhook_config';
 
   const DEFAULT_HIGHLIGHT_COLORS = {
     selected: '#16a34a',
     search: '#d97706'
   };
+  const DEFAULT_WEBHOOK_CONFIG = {
+    enabled: false,
+    url: '',
+    customHeaders: {}
+  };
+  let webhookConfig = Object.assign({}, DEFAULT_WEBHOOK_CONFIG);
 
   const RECOMMENDED_HIGHLIGHT_COLORS = [
     '#ef4444', '#f97316', '#f59e0b', '#eab308', '#22c55e',
@@ -119,6 +133,16 @@
     applyState(currentState);
     showToast(t('popup_toast_language_updated', null, 'Language updated'));
     await sendToContent({ type: 'I18N_REFRESH' });
+  });
+
+  saveWebhookBtn.addEventListener('click', async () => {
+    await saveWebhookConfigFromInputs();
+  });
+  webhookDetailToggleBtn.addEventListener('click', () => {
+    toggleWebhookDetailPanel();
+  });
+  webhookTestBtn.addEventListener('click', async () => {
+    await sendWebhookTestFromInputs();
   });
 
   // ──────────────────────────────────────────
@@ -342,6 +366,216 @@
         resolve(result ? result[key] : null);
       });
     });
+  }
+
+  function normalizeWebhookUrl(value) {
+    if (typeof value !== 'string') return '';
+    const raw = value.trim();
+    if (!raw) return '';
+    try {
+      const parsed = new URL(raw);
+      if (parsed.protocol !== 'http:' && parsed.protocol !== 'https:') return '';
+      return parsed.toString();
+    } catch (_err) {
+      return '';
+    }
+  }
+
+  function isValidHeaderName(name) {
+    return /^[!#$%&'*+.^_`|~0-9A-Za-z-]+$/.test(name);
+  }
+
+  function normalizeWebhookHeaders(headers) {
+    if (!headers || typeof headers !== 'object' || Array.isArray(headers)) return {};
+    const normalized = {};
+    Object.entries(headers).forEach(([rawName, rawValue]) => {
+      const name = String(rawName || '').trim();
+      if (!isValidHeaderName(name)) return;
+      normalized[name] = String(rawValue == null ? '' : rawValue).trim();
+    });
+    return normalized;
+  }
+
+  function formatWebhookHeadersForInput(headers) {
+    const normalized = normalizeWebhookHeaders(headers);
+    return Object.entries(normalized)
+      .map(([name, value]) => `${name}: ${value}`)
+      .join('\n');
+  }
+
+  function parseWebhookHeadersInput(rawText) {
+    const normalized = {};
+    const lines = String(rawText || '').split(/\r?\n/);
+    for (const rawLine of lines) {
+      const line = rawLine.trim();
+      if (!line) continue;
+      const splitAt = line.indexOf(':');
+      if (splitAt <= 0) {
+        return { ok: false };
+      }
+      const name = line.slice(0, splitAt).trim();
+      const value = line.slice(splitAt + 1).trim();
+      if (!isValidHeaderName(name)) {
+        return { ok: false };
+      }
+      normalized[name] = value;
+    }
+    return { ok: true, headers: normalized };
+  }
+
+  function normalizeWebhookConfig(config) {
+    return {
+      enabled: !!(config && config.enabled),
+      url: typeof (config && config.url) === 'string' ? config.url.trim() : '',
+      customHeaders: normalizeWebhookHeaders(config && config.customHeaders)
+    };
+  }
+
+  function toggleWebhookDetailPanel(forceOpen) {
+    const nextOpen = typeof forceOpen === 'boolean'
+      ? forceOpen
+      : webhookDetailPanel.hasAttribute('hidden');
+    webhookDetailPanel.toggleAttribute('hidden', !nextOpen);
+    webhookDetailToggleBtn.setAttribute('aria-expanded', nextOpen ? 'true' : 'false');
+  }
+
+  function applyWebhookConfigToForm(config) {
+    const normalized = normalizeWebhookConfig(config);
+    webhookEnabledInput.checked = normalized.enabled;
+    webhookUrlInput.value = normalized.url;
+    webhookHeadersInput.value = formatWebhookHeadersForInput(normalized.customHeaders);
+    toggleWebhookDetailPanel(Object.keys(normalized.customHeaders).length > 0);
+  }
+
+  async function initWebhookConfigPreference() {
+    const saved = await getStorageValue(WEBHOOK_CONFIG_STORAGE_KEY);
+    webhookConfig = normalizeWebhookConfig(saved || DEFAULT_WEBHOOK_CONFIG);
+    applyWebhookConfigToForm(webhookConfig);
+  }
+
+  async function saveWebhookConfigFromInputs() {
+    const enabled = !!webhookEnabledInput.checked;
+    const rawUrl = webhookUrlInput.value.trim();
+    const normalizedUrl = normalizeWebhookUrl(rawUrl);
+    const parsedHeaders = parseWebhookHeadersInput(webhookHeadersInput.value);
+
+    if (enabled && !normalizedUrl) {
+      showToast(t('popup_toast_webhook_invalid_url', null, 'Invalid webhook URL'));
+      webhookUrlInput.focus();
+      return false;
+    }
+    if (!parsedHeaders.ok) {
+      showToast(t('popup_toast_webhook_invalid_headers', null, 'Invalid webhook headers format'));
+      webhookHeadersInput.focus();
+      return false;
+    }
+
+    webhookConfig = {
+      enabled,
+      url: normalizedUrl || rawUrl,
+      customHeaders: parsedHeaders.headers
+    };
+    webhookHeadersInput.value = formatWebhookHeadersForInput(webhookConfig.customHeaders);
+
+    chrome.storage.local.set({
+      [WEBHOOK_CONFIG_STORAGE_KEY]: webhookConfig
+    });
+
+    showToast(t('popup_toast_webhook_saved', null, 'Webhook settings saved'));
+    return true;
+  }
+
+  async function sendWebhookTestFromInputs() {
+    const rawUrl = webhookUrlInput.value.trim();
+    const webhookUrl = normalizeWebhookUrl(rawUrl);
+    const parsedHeaders = parseWebhookHeadersInput(webhookHeadersInput.value);
+
+    if (!webhookUrl) {
+      showToast(t('popup_toast_webhook_invalid_url', null, 'Invalid webhook URL'));
+      webhookUrlInput.focus();
+      return;
+    }
+    if (!parsedHeaders.ok) {
+      showToast(t('popup_toast_webhook_invalid_headers', null, 'Invalid webhook headers format'));
+      webhookHeadersInput.focus();
+      return;
+    }
+
+    const i18nState = window.__AGT_I18N.getState();
+    const payload = {
+      event: 'agentation.webhook_test',
+      message: 'webhook test from popup',
+      meta: {
+        url: currentState.url || '',
+        locale: (i18nState && i18nState.locale) || 'en',
+        sentAt: new Date().toISOString()
+      }
+    };
+
+    webhookTestBtn.disabled = true;
+    try {
+      const response = await fetch(webhookUrl, {
+        method: 'POST',
+        headers: Object.assign({ 'Content-Type': 'application/json' }, parsedHeaders.headers),
+        body: JSON.stringify(payload)
+      });
+      showToast(response.ok
+        ? t('popup_toast_webhook_test_sent', null, 'Webhook test sent')
+        : t('popup_toast_webhook_test_failed', null, 'Webhook test failed'));
+    } catch (_err) {
+      showToast(t('popup_toast_webhook_test_failed', null, 'Webhook test failed'));
+    } finally {
+      webhookTestBtn.disabled = false;
+    }
+  }
+
+  async function sendWebhookIfNeeded(triggeredFormat) {
+    if (triggeredFormat !== 'plain') return 'skipped';
+
+    const config = normalizeWebhookConfig(webhookConfig);
+    if (!config.enabled) return 'skipped';
+
+    const webhookUrl = normalizeWebhookUrl(config.url);
+    if (!webhookUrl) return 'invalid_url';
+    const customHeaders = normalizeWebhookHeaders(config.customHeaders);
+
+    const [ai, json, plain] = await Promise.all([
+      sendToContent({ type: 'GET_EXPORT', payload: { format: 'ai' } }),
+      sendToContent({ type: 'GET_EXPORT', payload: { format: 'json' } }),
+      sendToContent({ type: 'GET_EXPORT', payload: { format: 'plain' } })
+    ]);
+
+    if (!ai || !ai.data || !json || !json.data || !plain || !plain.data) {
+      return 'export_failed';
+    }
+
+    const i18nState = window.__AGT_I18N.getState();
+    const payload = {
+      event: 'agentation.export',
+      triggeredFormat: 'plain',
+      exports: {
+        ai: ai.data,
+        json: json.data,
+        plain: plain.data
+      },
+      meta: {
+        url: currentState.url || '',
+        selectionCount: currentState.selections.length,
+        locale: (i18nState && i18nState.locale) || 'en',
+        sentAt: new Date().toISOString()
+      }
+    };
+
+    try {
+      const response = await fetch(webhookUrl, {
+        method: 'POST',
+        headers: Object.assign({ 'Content-Type': 'application/json' }, customHeaders),
+        body: JSON.stringify(payload)
+      });
+      return response.ok ? 'sent' : 'request_failed';
+    } catch (_err) {
+      return 'request_failed';
+    }
   }
 
   async function initHighlightColorPreference() {
@@ -705,7 +939,28 @@
     }
 
     copyToClipboard(result.data);
-    showToast(t('popup_toast_copied', null, 'Copied'));
+
+    const webhookStatus = await sendWebhookIfNeeded(format);
+    const copiedMsg = t('popup_toast_copied', null, 'Copied');
+
+    if (webhookStatus === 'sent') {
+      showToast(`${copiedMsg} · ${t('popup_toast_webhook_sent', null, 'Webhook sent')}`);
+      return;
+    }
+    if (webhookStatus === 'invalid_url') {
+      showToast(`${copiedMsg} · ${t('popup_toast_webhook_invalid_url', null, 'Invalid webhook URL')}`);
+      return;
+    }
+    if (webhookStatus === 'export_failed') {
+      showToast(`${copiedMsg} · ${t('popup_toast_webhook_export_failed', null, 'Webhook payload build failed')}`);
+      return;
+    }
+    if (webhookStatus === 'request_failed') {
+      showToast(`${copiedMsg} · ${t('popup_toast_webhook_failed', null, 'Webhook request failed')}`);
+      return;
+    }
+
+    showToast(copiedMsg);
   }
 
   // ──────────────────────────────────────────
@@ -771,6 +1026,7 @@
 
   async function bootstrap() {
     await initI18n();
+    await initWebhookConfigPreference();
     initShortcutPreference();
     setHighlightColorInputs(DEFAULT_HIGHLIGHT_COLORS);
     setMarkerToggleButton(true);

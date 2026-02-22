@@ -47,6 +47,17 @@
   "popup_settings_highlight_recommended": { "message": "おすすめ" },
   "popup_settings_highlight_reset": { "message": "デフォルトに戻す" },
 
+  "popup_settings_webhook_title": { "message": "Webhook" },
+  "popup_settings_webhook_enabled": { "message": "Webhookを有効化" },
+  "popup_settings_webhook_url_placeholder": { "message": "https://your-server.example/webhook" },
+  "popup_settings_webhook_save": { "message": "Webhookを保存" },
+  "popup_settings_webhook_detail_toggle": { "message": "詳細設定" },
+  "popup_settings_webhook_headers_label": { "message": "カスタムヘッダー" },
+  "popup_settings_webhook_headers_placeholder": { "message": "X-API-Key: your-token" },
+  "popup_settings_webhook_headers_help": { "message": "1行に1つ、Header-Name: value 形式で入力してください。" },
+  "popup_settings_webhook_test_button": { "message": "TEST" },
+  "popup_settings_webhook_help": { "message": "共有用でコピーすると、ai/json/plainの3形式をWebhookへ送信します。" },
+
   "popup_settings_info_title": { "message": "情報" },
   "popup_settings_info_developer_line": { "message": "開発者: Yang Sejin" },
 
@@ -101,6 +112,14 @@
   "popup_toast_copy_failed": { "message": "コピーに失敗しました" },
   "popup_toast_copied": { "message": "コピーしました" },
   "popup_toast_language_updated": { "message": "言語を変更しました" },
+  "popup_toast_webhook_invalid_url": { "message": "Webhook URLの形式が正しくありません" },
+  "popup_toast_webhook_invalid_headers": { "message": "Webhookヘッダーの形式が正しくありません" },
+  "popup_toast_webhook_saved": { "message": "Webhook設定を保存しました" },
+  "popup_toast_webhook_test_sent": { "message": "Webhookテストを送信しました" },
+  "popup_toast_webhook_test_failed": { "message": "Webhookテストの送信に失敗しました" },
+  "popup_toast_webhook_sent": { "message": "Webhook送信完了" },
+  "popup_toast_webhook_export_failed": { "message": "Webhook送信用データの生成に失敗しました" },
+  "popup_toast_webhook_failed": { "message": "Webhookリクエストに失敗しました" },
   "popup_lang_auto": { "message": "自動（ブラウザ言語）" },
 
   "overlay_counter_label": { "message": "選択" },

@@ -47,6 +47,17 @@
   "popup_settings_highlight_recommended": { "message": "Recommended" },
   "popup_settings_highlight_reset": { "message": "Reset to default" },
 
+  "popup_settings_webhook_title": { "message": "Webhook" },
+  "popup_settings_webhook_enabled": { "message": "Enable webhook" },
+  "popup_settings_webhook_url_placeholder": { "message": "https://your-server.example/webhook" },
+  "popup_settings_webhook_save": { "message": "Save webhook" },
+  "popup_settings_webhook_detail_toggle": { "message": "Detail settings" },
+  "popup_settings_webhook_headers_label": { "message": "Custom headers" },
+  "popup_settings_webhook_headers_placeholder": { "message": "X-API-Key: your-token" },
+  "popup_settings_webhook_headers_help": { "message": "Use one header per line in Header-Name: value format." },
+  "popup_settings_webhook_test_button": { "message": "TEST" },
+  "popup_settings_webhook_help": { "message": "When you copy in Share format, this sends ai/json/plain payloads to the webhook." },
+
   "popup_settings_info_title": { "message": "Info" },
   "popup_settings_info_developer_line": { "message": "Developer: Yang Sejin" },
 
@@ -101,6 +112,14 @@
   "popup_toast_copy_failed": { "message": "Copy failed" },
   "popup_toast_copied": { "message": "Copied" },
   "popup_toast_language_updated": { "message": "Language updated" },
+  "popup_toast_webhook_invalid_url": { "message": "Invalid webhook URL" },
+  "popup_toast_webhook_invalid_headers": { "message": "Invalid webhook headers format" },
+  "popup_toast_webhook_saved": { "message": "Webhook settings saved" },
+  "popup_toast_webhook_test_sent": { "message": "Webhook test sent" },
+  "popup_toast_webhook_test_failed": { "message": "Webhook test request failed" },
+  "popup_toast_webhook_sent": { "message": "Webhook sent" },
+  "popup_toast_webhook_export_failed": { "message": "Webhook payload build failed" },
+  "popup_toast_webhook_failed": { "message": "Webhook request failed" },
   "popup_lang_auto": { "message": "Auto (browser language)" },
 
   "overlay_counter_label": { "message": "Selected" },

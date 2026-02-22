@@ -571,6 +571,107 @@
     .settings-desc {
       font-size: 12px; color: var(--text2); line-height: 1.6;
     }
+    .webhook-stack {
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+      margin-top: 10px;
+    }
+    .webhook-enable {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      color: var(--text2);
+      font-size: 12px;
+      user-select: none;
+    }
+    .webhook-enable input {
+      width: 14px;
+      height: 14px;
+      accent-color: var(--blue);
+      cursor: pointer;
+    }
+    .webhook-url-input {
+      width: 100%;
+      background: var(--bg3);
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      color: var(--text);
+      font-size: 12px;
+      padding: 7px 9px;
+      outline: none;
+    }
+    .webhook-url-input:focus {
+      border-color: var(--blue);
+    }
+    .webhook-head {
+      justify-content: flex-start;
+      align-items: baseline;
+      gap: 8px;
+      flex-wrap: wrap;
+    }
+    .webhook-help-inline {
+      font-size: 10px;
+      color: var(--text3);
+      letter-spacing: 0.1px;
+      line-height: 1.35;
+    }
+    .webhook-actions {
+      display: flex;
+      justify-content: flex-end;
+      gap: 8px;
+    }
+    .webhook-detail-panel {
+      display: flex;
+      flex-direction: column;
+      gap: 7px;
+      padding: 10px;
+      border-radius: 8px;
+      border: 1px solid var(--border);
+      background: var(--bg2);
+    }
+    .webhook-detail-panel[hidden] {
+      display: none;
+    }
+    .webhook-field-label {
+      font-size: 11px;
+      color: var(--text2);
+      font-weight: 600;
+    }
+    .webhook-headers-input {
+      width: 100%;
+      min-height: 78px;
+      resize: vertical;
+      background: var(--bg3);
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      color: var(--text);
+      font-size: 12px;
+      padding: 8px 9px;
+      outline: none;
+      line-height: 1.45;
+      font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", monospace;
+    }
+    .webhook-headers-input:focus {
+      border-color: var(--blue);
+    }
+    .webhook-detail-help {
+      font-size: 10px;
+      color: var(--text3);
+      line-height: 1.35;
+    }
+    .webhook-detail-foot {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 8px;
+    }
+    .webhook-test-btn {
+      min-width: 54px;
+      font-size: 11px;
+      font-weight: 700;
+      letter-spacing: 0.3px;
+    }
     .settings-desc a {
       color: var(--blue);
       text-decoration: none;
@@ -720,6 +821,46 @@
         </div>
         <div class="color-actions">
           <button class="icon-btn" id="resetHighlightColorsBtn" data-i18n="popup_settings_highlight_reset">Reset to default</button>
+        </div>
+      </div>
+    </div>
+    <div class="settings-section">
+      <div class="shortcut-head webhook-head">
+        <div class="settings-title" data-i18n="popup_settings_webhook_title">Webhook</div>
+        <div class="webhook-help-inline" data-i18n="popup_settings_webhook_help">
+          When you copy in Share format, this sends ai/json/plain payloads to the webhook.
+        </div>
+      </div>
+      <div class="webhook-stack">
+        <label class="webhook-enable" for="webhookEnabledInput">
+          <input id="webhookEnabledInput" type="checkbox" />
+          <span data-i18n="popup_settings_webhook_enabled">Enable webhook</span>
+        </label>
+        <input
+          class="webhook-url-input"
+          id="webhookUrlInput"
+          type="url"
+          placeholder="https://your-server.example/webhook"
+          data-i18n-placeholder="popup_settings_webhook_url_placeholder"
+        />
+        <div class="webhook-actions">
+          <button class="icon-btn" id="saveWebhookBtn" data-i18n="popup_settings_webhook_save">Save webhook</button>
+          <button class="icon-btn" id="webhookDetailToggleBtn" data-i18n="popup_settings_webhook_detail_toggle">Detail settings</button>
+        </div>
+        <div class="webhook-detail-panel" id="webhookDetailPanel" hidden>
+          <label class="webhook-field-label" for="webhookHeadersInput" data-i18n="popup_settings_webhook_headers_label">Custom headers</label>
+          <textarea
+            class="webhook-headers-input"
+            id="webhookHeadersInput"
+            placeholder="X-API-Key: your-token&#10;X-Workspace: Agentation"
+            data-i18n-placeholder="popup_settings_webhook_headers_placeholder"
+          ></textarea>
+          <div class="webhook-detail-foot">
+            <div class="webhook-detail-help" data-i18n="popup_settings_webhook_headers_help">
+              One header per line in Header-Name: value format.
+            </div>
+            <button class="icon-btn webhook-test-btn" id="webhookTestBtn" data-i18n="popup_settings_webhook_test_button">TEST</button>
+          </div>
         </div>
       </div>
     </div>

@@ -47,6 +47,17 @@
   "popup_settings_highlight_recommended": { "message": "추천색" },
   "popup_settings_highlight_reset": { "message": "기본값으로" },
 
+  "popup_settings_webhook_title": { "message": "Webhook" },
+  "popup_settings_webhook_enabled": { "message": "Webhook 사용" },
+  "popup_settings_webhook_url_placeholder": { "message": "https://your-server.example/webhook" },
+  "popup_settings_webhook_save": { "message": "Webhook 저장" },
+  "popup_settings_webhook_detail_toggle": { "message": "세부 설정" },
+  "popup_settings_webhook_headers_label": { "message": "커스텀 헤더" },
+  "popup_settings_webhook_headers_placeholder": { "message": "X-API-Key: your-token" },
+  "popup_settings_webhook_headers_help": { "message": "한 줄에 Header-Name: value 형식으로 입력하세요." },
+  "popup_settings_webhook_test_button": { "message": "TEST" },
+  "popup_settings_webhook_help": { "message": "공유용으로 복사하면 ai/json/plain 3가지 포맷이 웹훅으로 전송됩니다." },
+
   "popup_settings_info_title": { "message": "정보" },
   "popup_settings_info_developer_line": { "message": "개발자 양세진" },
 
@@ -101,6 +112,14 @@
   "popup_toast_copy_failed": { "message": "복사 실패" },
   "popup_toast_copied": { "message": "복사되었습니다" },
   "popup_toast_language_updated": { "message": "언어가 변경되었습니다" },
+  "popup_toast_webhook_invalid_url": { "message": "Webhook URL 형식이 올바르지 않습니다" },
+  "popup_toast_webhook_invalid_headers": { "message": "Webhook 헤더 형식이 올바르지 않습니다" },
+  "popup_toast_webhook_saved": { "message": "Webhook 설정이 저장되었습니다" },
+  "popup_toast_webhook_test_sent": { "message": "Webhook 테스트 전송됨" },
+  "popup_toast_webhook_test_failed": { "message": "Webhook 테스트 요청 실패" },
+  "popup_toast_webhook_sent": { "message": "Webhook 전송됨" },
+  "popup_toast_webhook_export_failed": { "message": "Webhook 전송 데이터 생성 실패" },
+  "popup_toast_webhook_failed": { "message": "Webhook 요청 실패" },
   "popup_lang_auto": { "message": "자동 (브라우저 언어)" },
 
   "overlay_counter_label": { "message": "선택" },
