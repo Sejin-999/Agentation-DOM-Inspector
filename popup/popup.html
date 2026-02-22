@@ -63,6 +63,8 @@
     /* 토글 버튼 */
     .toggle-btn {
       display: flex; align-items: center; gap: 6px;
+      width: 120px;
+      justify-content: center;
       padding: 6px 12px;
       border: none; border-radius: var(--radius);
       font-size: 12px; font-weight: 600; cursor: pointer;
@@ -79,6 +81,18 @@
     .toggle-dot {
       width: 7px; height: 7px; border-radius: 50%;
       background: rgba(255,255,255,0.6);
+    }
+    #toggleLabel {
+      display: inline-block;
+      max-width: calc(100% - 16px);
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+      line-height: 1.1;
+      transition: font-size 0.15s;
+    }
+    .toggle-btn.active #toggleLabel {
+      font-size: 11px;
     }
     .toggle-btn.active .toggle-dot {
       background: #bbf7d0;
