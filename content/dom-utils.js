@@ -131,7 +131,34 @@
   };
 
   /**
-   * Markdown Export 생성
+   * AI용 Markdown Export (Claude, Cursor 등 AI 프롬프트에 최적화)
+   * @param {Array} selections
+   * @returns {string}
+   */
+  window.__AGT.exportAI = function (selections) {
+    const lines = [
+      `# UI Annotations`,
+      `**Page:** ${location.href}`,
+      `**Elements:** ${selections.length}`,
+      ``
+    ];
+
+    selections.forEach((sel, i) => {
+      const text = sel.innerText ? `"${sel.innerText.slice(0, 100)}"` : null;
+      const hasAnnotation = sel.annotation && sel.annotation.trim();
+
+      lines.push(`---`);
+      lines.push(`**[${i + 1}] ${sel.tagName}** \`${sel.selector}\``);
+      if (text) lines.push(`Text: ${text}`);
+      if (hasAnnotation) lines.push(`> ${sel.annotation}`);
+      lines.push(``);
+    });
+
+    return lines.join('\n');
+  };
+
+  /**
+   * 개발자용 Markdown Export (셀렉터 전략, 속성, 위치 등 상세 정보 포함)
    * @param {Array} selections
    * @returns {string}
    */
@@ -157,6 +184,30 @@
       if (sel.innerText) lines.push(`- **Text**: ${sel.innerText}`);
       if (bb) lines.push(`- **Position**: (${bb.x}, ${bb.y}) ${bb.width}×${bb.height}px`);
       if (attrStr) lines.push(`- **Attributes**: ${attrStr}`);
+      if (sel.annotation) lines.push(`- **Annotation**: ${sel.annotation}`);
+      lines.push(``);
+    });
+
+    return lines.join('\n');
+  };
+
+  /**
+   * 공유용 Plain Text Export (디자이너/기획자와 텍스트로 공유)
+   * @param {Array} selections
+   * @returns {string}
+   */
+  window.__AGT.exportPlain = function (selections) {
+    const lines = [
+      `UI 주석 — ${location.href}`,
+      `총 ${selections.length}개 요소`,
+      ``
+    ];
+
+    selections.forEach((sel, i) => {
+      lines.push(`${i + 1}. ${sel.tagName} (${sel.selector})`);
+      if (sel.innerText) lines.push(`   텍스트: "${sel.innerText.slice(0, 80)}"`);
+      if (sel.annotation) lines.push(`   주석: ${sel.annotation}`);
+      else lines.push(`   주석: (없음)`);
       lines.push(``);
     });
 

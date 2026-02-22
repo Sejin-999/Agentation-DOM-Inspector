@@ -316,14 +316,16 @@
       type: 'SET_MARKER_VISIBILITY',
       payload: { visible: nextVisible }
     });
-    if (!result || typeof result.visible !== 'boolean') {
-      showToast('페이지와 통신 실패');
-      return;
+    if (result && typeof result.visible === 'boolean') {
+      chrome.storage.local.set({ [MARKER_VISIBILITY_STORAGE_KEY]: result.visible });
+      setMarkerToggleButton(result.visible);
+      showToast(result.visible ? '마커 표시' : '마커 숨김');
+    } else {
+      // 페이지와 통신 안 될 때도 로컬 상태는 업데이트 (storage 저장, 다음 페이지 로드 시 반영)
+      chrome.storage.local.set({ [MARKER_VISIBILITY_STORAGE_KEY]: nextVisible });
+      setMarkerToggleButton(nextVisible);
+      showToast((nextVisible ? '마커 표시' : '마커 숨김') + ' (페이지 새로고침 후 반영)');
     }
-    const finalVisible = result.visible;
-    chrome.storage.local.set({ [MARKER_VISIBILITY_STORAGE_KEY]: finalVisible });
-    setMarkerToggleButton(finalVisible);
-    showToast(finalVisible ? '마커 표시' : '마커 숨김');
   }
 
   // ──────────────────────────────────────────
@@ -410,15 +412,22 @@
       <div class="sel-item-header">
         <span class="sel-tag">${escapeHtml(sel.tagName)} ${orderNumber}번</span>
         <div class="sel-actions">
+          <button class="sel-btn edit-anno" title="주석 편집">편집</button>
           <button class="sel-btn copy-sel" title="셀렉터 복사">복사</button>
           <button class="sel-btn del" title="삭제">삭제</button>
         </div>
       </div>
       <div class="sel-selector">${escapeHtml(sel.selector)}</div>
       <div class="sel-text">${escapeHtml(text)}</div>
-      ${annotationHtml}
+      <div class="sel-anno-area">${annotationHtml}</div>
       ${bbStr ? `<div class="sel-meta">${bbStr} · ${sel.strategy}</div>` : ''}
     `;
+
+    // 편집 버튼
+    item.querySelector('.edit-anno').addEventListener('click', (e) => {
+      e.stopPropagation();
+      enterAnnotationEditMode(item, sel);
+    });
 
     // 복사 버튼
     item.querySelector('.copy-sel').addEventListener('click', (e) => {
@@ -435,6 +444,63 @@
     });
 
     return item;
+  }
+
+  function enterAnnotationEditMode(item, sel) {
+    if (item.dataset.editing === '1') return;
+    item.dataset.editing = '1';
+
+    const annoArea = item.querySelector('.sel-anno-area');
+    const currentText = sel.annotation || '';
+
+    annoArea.innerHTML = `
+      <textarea class="anno-edit-input" rows="3" placeholder="주석 입력 (없으면 비워두세요)">${escapeHtml(currentText)}</textarea>
+      <div class="anno-edit-actions">
+        <button class="anno-cancel-btn">취소</button>
+        <button class="anno-save-btn">저장</button>
+      </div>
+    `;
+
+    const textarea = annoArea.querySelector('.anno-edit-input');
+    textarea.focus();
+    textarea.setSelectionRange(textarea.value.length, textarea.value.length);
+
+    async function doSave() {
+      const newText = textarea.value.trim();
+      item.dataset.editing = '0';
+      const state = await sendToContent({
+        type: 'EDIT_ANNOTATION',
+        payload: { id: sel.id, annotation: newText }
+      });
+      if (state) {
+        applyState(state);
+      } else {
+        // 통신 실패 시 로컬에서만 반영
+        sel.annotation = newText;
+        exitEditMode();
+      }
+    }
+
+    function exitEditMode() {
+      item.dataset.editing = '0';
+      annoArea.innerHTML = sel.annotation
+        ? `<div class="sel-annotation">${escapeHtml(sel.annotation)}</div>`
+        : '';
+    }
+
+    annoArea.querySelector('.anno-save-btn').addEventListener('click', (e) => {
+      e.stopPropagation();
+      doSave();
+    });
+    annoArea.querySelector('.anno-cancel-btn').addEventListener('click', (e) => {
+      e.stopPropagation();
+      exitEditMode();
+    });
+    textarea.addEventListener('keydown', (e) => {
+      e.stopPropagation();
+      if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); doSave(); }
+      if (e.key === 'Escape') { e.preventDefault(); exitEditMode(); }
+    });
   }
 
   // ──────────────────────────────────────────
@@ -508,10 +574,21 @@
   }
 
   // ──────────────────────────────────────────
-  // 하단 내보내기 버튼 (클립보드 복사)
+  // 포맷 셀렉터 + 복사 버튼
   // ──────────────────────────────────────────
-  document.getElementById('quickJsonBtn').addEventListener('click', async () => {
-    await exportAction('json');
+  let currentFormat = 'ai';
+
+  document.getElementById('formatSelector').addEventListener('click', (e) => {
+    const btn = e.target.closest('.format-btn');
+    if (!btn) return;
+    currentFormat = btn.dataset.format;
+    document.querySelectorAll('#formatSelector .format-btn').forEach(b => {
+      b.classList.toggle('active', b === btn);
+    });
+  });
+
+  document.getElementById('copyBtn').addEventListener('click', async () => {
+    await exportAction(currentFormat);
   });
 
   async function exportAction(format) {
@@ -527,7 +604,8 @@
     }
 
     copyToClipboard(result.data);
-    showToast('복사되었습니다');
+    const formatLabel = { ai: 'AI용', json: '개발자용', plain: '공유용' }[format] || '';
+    showToast(`${formatLabel} 복사됨`);
   }
 
   // ──────────────────────────────────────────
