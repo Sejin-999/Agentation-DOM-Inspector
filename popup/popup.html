@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="ko">
+<html lang="en">
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -179,6 +179,40 @@
     }
     .sel-btn:hover { color: var(--text); background: var(--bg3); }
     .sel-btn.del:hover { background: var(--red); color: #fff; border-color: var(--red); }
+    .sel-btn.edit-anno:hover { color: #60a5fa; border-color: #60a5fa; }
+
+    /* 주석 편집 모드 */
+    .sel-anno-area { margin-top: 4px; }
+    .anno-edit-input {
+      width: 100%;
+      background: var(--bg);
+      border: 1.5px solid var(--blue);
+      border-radius: 5px;
+      color: var(--text);
+      font-size: 12px;
+      padding: 6px 8px;
+      resize: none;
+      outline: none;
+      box-sizing: border-box;
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+      line-height: 1.5;
+    }
+    .anno-edit-input:focus { border-color: #60a5fa; }
+    .anno-edit-actions {
+      display: flex; gap: 6px; margin-top: 5px; justify-content: flex-end;
+    }
+    .anno-save-btn {
+      padding: 3px 12px; border-radius: 4px;
+      background: var(--blue); border: none;
+      color: #fff; cursor: pointer; font-size: 11px; font-weight: 600;
+    }
+    .anno-save-btn:hover { background: var(--blue-d); }
+    .anno-cancel-btn {
+      padding: 3px 10px; border-radius: 4px;
+      background: transparent; border: 1px solid var(--border);
+      color: var(--text2); cursor: pointer; font-size: 11px;
+    }
+    .anno-cancel-btn:hover { border-color: var(--text2); color: var(--text); }
     .sel-selector {
       font-family: monospace; font-size: 11px;
       color: var(--green);
@@ -272,23 +306,34 @@
       display: flex; flex-direction: column; gap: 6px;
       padding: 10px 12px 8px;
     }
-    .footer-export-btn {
-      flex: 1;
-      padding: 8px 0;
-      border-radius: var(--radius);
-      border: none; cursor: pointer;
-      font-size: 12px; font-weight: 600;
-      transition: opacity 0.15s;
+    .format-row {
+      display: flex; align-items: center; gap: 8px;
     }
-    .footer-export-btn:hover { opacity: 0.85; }
-    .footer-export-btn:active { opacity: 0.7; }
-    .footer-export-btn.json {
-      background: var(--amber); color: #000;
+    .format-selector {
+      display: flex; flex: 1;
+      background: var(--bg3);
+      border-radius: 5px;
+      padding: 2px; gap: 2px;
     }
-    .footer-export-btn.plain {
-      background: var(--bg3); color: var(--text);
-      border: 1px solid var(--border);
+    .format-btn {
+      flex: 1; padding: 5px 0;
+      border-radius: 4px; border: none;
+      background: transparent; color: var(--text3);
+      cursor: pointer; font-size: 11px; font-weight: 500;
+      transition: all 0.1s;
     }
+    .format-btn.active {
+      background: var(--bg2); color: var(--text); font-weight: 600;
+    }
+    .format-btn:hover:not(.active) { color: var(--text2); }
+    .copy-main-btn {
+      padding: 6px 14px;
+      background: var(--blue); border: none;
+      border-radius: 5px; color: #fff;
+      cursor: pointer; font-size: 12px; font-weight: 600;
+      white-space: nowrap; transition: background 0.15s;
+    }
+    .copy-main-btn:hover { background: var(--blue-d); }
     .footer-mini {
       display: flex;
       justify-content: flex-end;
@@ -360,6 +405,31 @@
     .settings-row {
       display: flex; align-items: flex-start; gap: 10px;
       padding: 5px 0; font-size: 12px; color: var(--text2);
+    }
+    .lang-row {
+      justify-content: space-between;
+      align-items: center;
+      gap: 12px;
+      padding-top: 2px;
+    }
+    .lang-select {
+      min-width: 168px;
+      padding: 6px 8px;
+      border-radius: 6px;
+      border: 1px solid var(--border);
+      background: var(--bg3);
+      color: var(--text);
+      font-size: 12px;
+      outline: none;
+    }
+    .lang-select:focus {
+      border-color: var(--blue);
+    }
+    .settings-help {
+      margin-top: 8px;
+      font-size: 11px;
+      color: var(--text3);
+      line-height: 1.45;
     }
     .kbd {
       font-family: monospace; font-size: 11px;
@@ -502,40 +572,40 @@
   <div class="header">
     <div class="header-left">
       <div class="logo">A</div>
-      <span class="title">DOM Inspector</span>
+      <span class="title" data-i18n="popup_header_title">DOM Inspector</span>
     </div>
     <button class="toggle-btn inactive" id="toggleBtn">
       <span class="toggle-dot"></span>
-      <span id="toggleLabel">선택 시작</span>
+      <span id="toggleLabel" data-i18n="popup_toggle_start">Start Selecting</span>
     </button>
   </div>
 
   <!-- 탭 -->
   <div class="tabs">
-    <div class="tab active" data-tab="selections">선택 <span id="tabCount"></span></div>
-    <div class="tab" data-tab="search">검색</div>
-    <div class="tab" data-tab="settings">설정</div>
+    <div class="tab active" data-tab="selections"><span data-i18n="popup_tab_selections">Selections</span> <span id="tabCount"></span></div>
+    <div class="tab" data-tab="search" data-i18n="popup_tab_search">Search</div>
+    <div class="tab" data-tab="settings" data-i18n="popup_tab_settings">Settings</div>
   </div>
 
   <!-- 선택 탭 -->
   <div class="panel active" id="panel-selections">
     <div class="selections-toolbar">
       <div class="count-badge">
-        선택된 요소 <span class="badge-num" id="selCount">0</span>
+        <span data-i18n="popup_selections_count_label">Selected elements</span> <span class="badge-num" id="selCount">0</span>
       </div>
       <div class="toolbar-actions">
-        <button class="icon-btn" id="undoBtn" disabled title="실행 취소 (Ctrl+Z)">↩ 실행취소</button>
-        <button class="icon-btn" id="redoBtn" disabled title="다시 실행 (Ctrl+Y)">↪ 다시실행</button>
-        <button class="icon-btn danger" id="clearAllBtn" title="전체 삭제">✕ 전체삭제</button>
+        <button class="icon-btn" id="undoBtn" disabled data-i18n-title="popup_undo_title" title="Undo (Ctrl+Z)" data-i18n="popup_undo_button">↩ Undo</button>
+        <button class="icon-btn" id="redoBtn" disabled data-i18n-title="popup_redo_title" title="Redo (Ctrl+Y)" data-i18n="popup_redo_button">↪ Redo</button>
+        <button class="icon-btn danger" id="clearAllBtn" data-i18n-title="popup_clear_all_title" title="Clear all" data-i18n="popup_clear_all_button">✕ Clear all</button>
       </div>
     </div>
     <div id="selectionList">
       <div class="empty-state" id="emptyState">
         <div class="empty-icon">🔍</div>
-        <div class="empty-title">선택된 요소가 없습니다</div>
+        <div class="empty-title" data-i18n="popup_empty_title">No elements selected</div>
         <div class="empty-desc">
-          상단 "선택 시작" 버튼으로 활성화 후<br>
-          페이지의 DOM 요소를 클릭하세요
+          <span data-i18n="popup_empty_desc_line1">Enable selection with "Start Selecting" above,</span><br>
+          <span data-i18n="popup_empty_desc_line2">then click a DOM element on the page</span>
         </div>
       </div>
     </div>
@@ -549,20 +619,21 @@
           class="search-input"
           id="searchInput"
           type="text"
-          placeholder="CSS 셀렉터 입력 (예: button.primary, #submit)"
+          placeholder="Enter CSS selector (e.g. button.primary, #submit)"
+          data-i18n-placeholder="popup_search_placeholder"
         />
-        <button class="search-go" id="searchBtn">검색</button>
+        <button class="search-go" id="searchBtn" data-i18n="popup_search_button">Search</button>
       </div>
     </div>
     <div class="search-result" id="searchResult" style="display:none"></div>
     <div style="padding: 12px; font-size: 12px; color: var(--text3); line-height: 1.6;">
-      <strong style="color: var(--text2);">검색 팁</strong><br>
-      • <code style="color:var(--green)">button</code> — 모든 버튼<br>
-      • <code style="color:var(--green)">.primary</code> — primary 클래스<br>
-      • <code style="color:var(--green)">#submit-btn</code> — ID 선택<br>
-      • <code style="color:var(--green)">[data-testid="login"]</code> — 속성 선택<br>
-      • <code style="color:var(--green)">input[type="text"]</code> — 입력 필드<br>
-      <br>검색 결과는 설정한 검색 색상으로 페이지에서 하이라이트됩니다.
+      <strong style="color: var(--text2);" data-i18n="popup_search_tip_title">Search tips</strong><br>
+      • <code style="color:var(--green)">button</code> — <span data-i18n="popup_search_tip_buttons">all buttons</span><br>
+      • <code style="color:var(--green)">.primary</code> — <span data-i18n="popup_search_tip_primary">primary class</span><br>
+      • <code style="color:var(--green)">#submit-btn</code> — <span data-i18n="popup_search_tip_id">ID selector</span><br>
+      • <code style="color:var(--green)">[data-testid="login"]</code> — <span data-i18n="popup_search_tip_attr">attribute selector</span><br>
+      • <code style="color:var(--green)">input[type="text"]</code> — <span data-i18n="popup_search_tip_input">input field</span><br>
+      <br><span data-i18n="popup_search_tip_summary">Search results are highlighted on the page with your configured search color.</span>
     </div>
   </div>
 
@@ -570,16 +641,28 @@
   <div class="panel" id="panel-settings">
     <div class="settings-section">
       <div class="shortcut-head">
-        <div class="settings-title">단축키</div>
-        <div class="os-toggle" role="tablist" aria-label="단축키 OS 설정">
-          <button class="os-toggle-btn active" id="osWinBtn" data-os="win">Win</button>
-          <button class="os-toggle-btn" id="osMacBtn" data-os="mac">Mac</button>
+        <div class="settings-title" data-i18n="popup_settings_language_title">Language</div>
+      </div>
+      <div class="settings-row lang-row">
+        <div data-i18n="popup_settings_language_label">Display language</div>
+        <select class="lang-select" id="languageSelect"></select>
+      </div>
+      <div class="settings-desc settings-help" id="languageHelp" data-i18n="popup_settings_language_help">
+        Add a new language JSON package and it will appear in this list.
+      </div>
+    </div>
+    <div class="settings-section">
+      <div class="shortcut-head">
+        <div class="settings-title" data-i18n="popup_settings_shortcuts_title">Shortcuts</div>
+        <div class="os-toggle" role="tablist" data-i18n-aria-label="popup_settings_shortcuts_aria" aria-label="Shortcut OS setting">
+          <button class="os-toggle-btn active" id="osWinBtn" data-os="win" data-i18n="popup_os_win">Win</button>
+          <button class="os-toggle-btn" id="osMacBtn" data-os="mac" data-i18n="popup_os_mac">Mac</button>
         </div>
       </div>
       <table class="shortcut-table">
         <thead>
           <tr>
-            <th>기능</th>
+            <th data-i18n="popup_settings_shortcuts_feature">Action</th>
             <th class="cell-key" id="shortcutOsLabel">Win</th>
           </tr>
         </thead>
@@ -588,40 +671,40 @@
     </div>
     <div class="settings-section">
       <div class="shortcut-head">
-        <div class="settings-title">하이라이트 색상</div>
+        <div class="settings-title" data-i18n="popup_settings_highlight_title">Highlight colors</div>
       </div>
       <div class="color-settings">
         <div class="color-row">
-          <strong>선택</strong>
+          <strong data-i18n="popup_settings_highlight_selected">Selected</strong>
           <div class="color-control">
             <input class="color-picker" id="selectedColorInput" type="color" value="#16a34a" />
             <span class="color-hex" id="selectedColorHex">#16a34a</span>
           </div>
         </div>
         <div class="palette-block">
-          <div class="palette-title">추천색</div>
+          <div class="palette-title" data-i18n="popup_settings_highlight_recommended">Recommended</div>
           <div class="palette-grid" id="selectedColorPalette"></div>
         </div>
         <div class="color-row">
-          <strong>검색</strong>
+          <strong data-i18n="popup_settings_highlight_search">Search</strong>
           <div class="color-control">
             <input class="color-picker" id="searchColorInput" type="color" value="#d97706" />
             <span class="color-hex" id="searchColorHex">#d97706</span>
           </div>
         </div>
         <div class="palette-block">
-          <div class="palette-title">추천색</div>
+          <div class="palette-title" data-i18n="popup_settings_highlight_recommended">Recommended</div>
           <div class="palette-grid" id="searchColorPalette"></div>
         </div>
         <div class="color-actions">
-          <button class="icon-btn" id="resetHighlightColorsBtn">기본값으로</button>
+          <button class="icon-btn" id="resetHighlightColorsBtn" data-i18n="popup_settings_highlight_reset">Reset to default</button>
         </div>
       </div>
     </div>
     <div class="settings-section">
-      <div class="settings-title">정보</div>
+      <div class="settings-title" data-i18n="popup_settings_info_title">Info</div>
       <div class="settings-desc">
-        개발자 양세진<br>
+        <span data-i18n="popup_settings_info_developer_line">Developer: Yang Sejin</span><br>
         <a href="https://github.com/Sejin-999" target="_blank" rel="noopener noreferrer">https://github.com/Sejin-999</a><br>
         sejinyang49@gmail.com
       </div>
@@ -631,9 +714,16 @@
   <!-- 하단 푸터 -->
   <div class="footer">
     <div class="footer-export">
-      <button class="footer-export-btn json" id="quickJsonBtn">복사</button>
+      <div class="format-row">
+        <div class="format-selector" id="formatSelector">
+          <button class="format-btn active" data-format="ai">AI용</button>
+          <button class="format-btn" data-format="json">개발자</button>
+          <button class="format-btn" data-format="plain">공유용</button>
+        </div>
+        <button class="copy-main-btn" id="copyBtn">복사</button>
+      </div>
       <div class="footer-mini">
-        <button class="marker-toggle-btn" id="markerToggleBtn" data-visible="1">마커 숨김</button>
+        <button class="marker-toggle-btn" id="markerToggleBtn" data-visible="1" data-i18n="popup_marker_hide">Hide markers</button>
       </div>
     </div>
     <div class="footer-status">
@@ -644,6 +734,7 @@
   <!-- 토스트 -->
   <div class="toast" id="toast"></div>
 
+  <script src="../shared/i18n.js"></script>
   <script src="popup.js"></script>
 </body>
 </html>

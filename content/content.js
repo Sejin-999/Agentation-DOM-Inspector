@@ -448,72 +448,76 @@
     const { type, payload } = message;
 
     switch (type) {
-      case 'TOGGLE_ACTIVE':
+      case 'TOGGLE_ACTIVE': {
         if (State.isActive) deactivate();
         else activate();
         sendResponse(getStateSnapshot());
         break;
-
-      case 'GET_STATE':
+      }
+      case 'GET_STATE': {
         sendResponse(getStateSnapshot());
         break;
-
-      case 'UNDO':
+      }
+      case 'UNDO': {
         undo();
         sendResponse(getStateSnapshot());
         break;
-
-      case 'REDO':
+      }
+      case 'REDO': {
         redo();
         sendResponse(getStateSnapshot());
         break;
-
-      case 'REMOVE_SELECTION':
+      }
+      case 'REMOVE_SELECTION': {
         if (payload && payload.id) removeSelection(payload.id);
         sendResponse(getStateSnapshot());
         break;
-
-      case 'CLEAR_ALL':
+      }
+      case 'CLEAR_ALL': {
         clearAll();
         sendResponse(getStateSnapshot());
         break;
-
-      case 'SEARCH':
+      }
+      case 'SEARCH': {
         const result = search(payload && payload.query);
         sendResponse(result);
         break;
-
-      case 'CLEAR_SEARCH':
+      }
+      case 'CLEAR_SEARCH': {
         window.__AGT.clearSearchHighlights();
         sendResponse({ ok: true });
         break;
-
-      case 'GET_EXPORT':
+      }
+      case 'GET_EXPORT': {
         const format = payload && payload.format;
-        if (format === 'markdown') {
+        if (format === 'ai') {
+          sendResponse({ data: window.__AGT.exportAI(State.selections) });
+        } else if (format === 'plain') {
+          sendResponse({ data: window.__AGT.exportPlain(State.selections) });
+        } else if (format === 'markdown') {
           sendResponse({ data: window.__AGT.exportMarkdown(State.selections) });
         } else {
           sendResponse({ data: window.__AGT.exportJSON(State.selections) });
         }
         break;
-
-      case 'GET_HIGHLIGHT_COLORS':
+      }
+      case 'GET_HIGHLIGHT_COLORS': {
         sendResponse(getHighlightColors());
         break;
-
-      case 'SET_HIGHLIGHT_COLORS':
+      }
+      case 'SET_HIGHLIGHT_COLORS': {
         const appliedColors = applyHighlightColors(payload || {}) || getHighlightColors() || payload || null;
         chrome.storage.local.set({
           [HIGHLIGHT_COLOR_STORAGE_KEY]: appliedColors
         }).catch(() => {});
         sendResponse({ ok: true, colors: appliedColors });
         break;
-
-      case 'GET_MARKER_VISIBILITY':
+      }
+      case 'GET_MARKER_VISIBILITY': {
         sendResponse({ visible: getMarkerVisibility() });
         break;
-
-      case 'SET_MARKER_VISIBILITY':
+      }
+      case 'SET_MARKER_VISIBILITY': {
         const requestedVisible = !!(payload && payload.visible);
         const appliedVisible = applyMarkerVisibility(requestedVisible);
         const finalVisible = typeof appliedVisible === 'boolean' ? appliedVisible : requestedVisible;
@@ -522,9 +526,23 @@
         }).catch(() => {});
         sendResponse({ ok: true, visible: finalVisible });
         break;
-
-      default:
+      }
+      case 'EDIT_ANNOTATION': {
+        if (payload && payload.id) {
+          const sel = State.selections.find(s => s.id === payload.id);
+          if (sel) {
+            pushUndo();
+            sel.annotation = typeof payload.annotation === 'string' ? payload.annotation : '';
+            saveToStorage();
+            broadcastState();
+          }
+        }
+        sendResponse(getStateSnapshot());
+        break;
+      }
+      default: {
         sendResponse({ error: 'unknown message type' });
+      }
     }
 
     return false; // 동기 응답
