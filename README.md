@@ -19,3 +19,7 @@
 ### 1. Agentation DOM Inspector 소개
 
 웹페이지에서 DOM 요소를 빠르게 선택/주석/정리하고, `AI / Developer / Share` 포맷으로 복사할 수 있는 Chrome Extension입니다.
+
+### 2. 개인정보처리방침
+
+- [Privacy Policy / 개인정보처리방침](./PRIVACY.md)
