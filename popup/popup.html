@@ -571,11 +571,182 @@
     .settings-desc {
       font-size: 12px; color: var(--text2); line-height: 1.6;
     }
-    .webhook-stack {
+    .webhook-head {
+      justify-content: space-between;
+      align-items: flex-start;
+      gap: 8px;
+    }
+    .webhook-head-main {
       display: flex;
       flex-direction: column;
-      gap: 8px;
+      gap: 4px;
+      min-width: 0;
+      flex: 1;
+    }
+    .webhook-head .icon-btn {
+      flex-shrink: 0;
+    }
+    .webhook-open-actions {
       margin-top: 10px;
+      display: flex;
+      justify-content: flex-end;
+    }
+    .webhook-help-inline {
+      font-size: 10px;
+      color: var(--text3);
+      letter-spacing: 0.1px;
+      line-height: 1.35;
+    }
+    .webhook-page-head {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 10px;
+      padding-bottom: 8px;
+      border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+    }
+    .webhook-page-subtitle {
+      font-size: 11px;
+      color: var(--text3);
+      line-height: 1.5;
+      margin-top: 8px;
+      overflow-wrap: anywhere;
+    }
+    .webhook-detail-panel {
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+      padding-top: 10px;
+      border-radius: 10px;
+    }
+    .webhook-field-label {
+      font-size: 11px;
+      color: var(--text2);
+      font-weight: 600;
+    }
+    .webhook-detail-actions {
+      display: flex;
+      justify-content: flex-end;
+    }
+    .webhook-target-list {
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+    }
+    .webhook-target-empty {
+      font-size: 11px;
+      color: var(--text3);
+      border: 1px dashed var(--border);
+      border-radius: 8px;
+      padding: 8px 10px;
+      background: var(--bg3);
+    }
+    .webhook-target-empty[hidden] {
+      display: none;
+    }
+    .webhook-target-card {
+      border: 1px solid rgba(255, 255, 255, 0.14);
+      border-radius: 10px;
+      background: linear-gradient(180deg, rgba(255, 255, 255, 0.06), rgba(255, 255, 255, 0.02));
+      box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.04);
+      padding: 12px;
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+    }
+    .webhook-target-head {
+      display: flex;
+      align-items: flex-start;
+      justify-content: space-between;
+      gap: 8px;
+    }
+    .webhook-target-title-wrap {
+      min-width: 0;
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      flex-wrap: wrap;
+    }
+    .webhook-target-head-actions {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+    }
+    .webhook-target-title {
+      font-size: 13px;
+      color: var(--text);
+      font-weight: 700;
+      letter-spacing: 0.1px;
+    }
+    .webhook-target-name-display {
+      cursor: text;
+      border-bottom: 1px dashed transparent;
+      transition: border-color 0.15s ease, color 0.15s ease;
+      user-select: none;
+    }
+    .webhook-target-name-display:hover {
+      border-bottom-color: rgba(125, 211, 252, 0.45);
+      color: #dbeafe;
+    }
+    .webhook-target-name-inline-input {
+      min-width: 140px;
+      max-width: 230px;
+      background: rgba(15, 23, 42, 0.72);
+      border: 1px solid rgba(56, 189, 248, 0.46);
+      border-radius: 6px;
+      color: var(--text);
+      font-size: 13px;
+      font-weight: 700;
+      padding: 4px 8px;
+      outline: none;
+      box-shadow: 0 0 0 1px rgba(56, 189, 248, 0.2);
+    }
+    .webhook-test-status {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      height: 20px;
+      padding: 0 7px;
+      border-radius: 999px;
+      font-size: 10px;
+      font-weight: 700;
+      letter-spacing: 0.2px;
+      border: 1px solid transparent;
+    }
+    .webhook-test-status.success {
+      color: #86efac;
+      border-color: rgba(74, 222, 128, 0.4);
+      background: rgba(34, 197, 94, 0.14);
+    }
+    .webhook-test-status.failed {
+      color: #fca5a5;
+      border-color: rgba(248, 113, 113, 0.4);
+      background: rgba(239, 68, 68, 0.14);
+    }
+    .webhook-test-status-time {
+      font-size: 10px;
+      font-weight: 600;
+      opacity: 0.9;
+      letter-spacing: 0;
+    }
+    .webhook-target-toggle {
+      margin-top: 2px;
+      padding-top: 8px;
+      border-top: 1px dashed rgba(255, 255, 255, 0.14);
+      font-size: 11px;
+    }
+    .webhook-target-card .icon-btn {
+      padding: 4px 9px;
+      min-height: 26px;
+      font-size: 11px;
+    }
+    .webhook-target-card .icon-btn[data-action="webhook-remove-target"] {
+      color: #fda4af;
+      border-color: rgba(251, 113, 133, 0.36);
+      background: rgba(251, 113, 133, 0.08);
+    }
+    .webhook-target-card .icon-btn[data-action="webhook-remove-target"]:hover {
+      background: rgba(251, 113, 133, 0.16);
     }
     .webhook-enable {
       display: inline-flex;
@@ -591,59 +762,49 @@
       accent-color: var(--blue);
       cursor: pointer;
     }
-    .webhook-url-input {
+    .webhook-target-modes {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 6px;
+    }
+    .webhook-mode-chip {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      border: 1px solid rgba(255, 255, 255, 0.15);
+      border-radius: 999px;
+      padding: 4px 9px;
+      background: rgba(15, 23, 42, 0.45);
+      color: var(--text2);
+      font-size: 11px;
+      user-select: none;
+    }
+    .webhook-mode-chip input {
+      width: 13px;
+      height: 13px;
+      accent-color: var(--blue);
+      cursor: pointer;
+    }
+    .webhook-target-url-input {
       width: 100%;
-      background: var(--bg3);
-      border: 1px solid var(--border);
+      background: rgba(15, 23, 42, 0.65);
+      border: 1px solid rgba(255, 255, 255, 0.14);
       border-radius: 6px;
       color: var(--text);
       font-size: 12px;
       padding: 7px 9px;
       outline: none;
     }
-    .webhook-url-input:focus {
+    .webhook-target-url-input:focus {
       border-color: var(--blue);
-    }
-    .webhook-head {
-      justify-content: flex-start;
-      align-items: baseline;
-      gap: 8px;
-      flex-wrap: wrap;
-    }
-    .webhook-help-inline {
-      font-size: 10px;
-      color: var(--text3);
-      letter-spacing: 0.1px;
-      line-height: 1.35;
-    }
-    .webhook-actions {
-      display: flex;
-      justify-content: flex-end;
-      gap: 8px;
-    }
-    .webhook-detail-panel {
-      display: flex;
-      flex-direction: column;
-      gap: 7px;
-      padding: 10px;
-      border-radius: 8px;
-      border: 1px solid var(--border);
-      background: var(--bg2);
-    }
-    .webhook-detail-panel[hidden] {
-      display: none;
-    }
-    .webhook-field-label {
-      font-size: 11px;
-      color: var(--text2);
-      font-weight: 600;
+      box-shadow: 0 0 0 1px rgba(59, 130, 246, 0.25);
     }
     .webhook-headers-input {
       width: 100%;
-      min-height: 78px;
+      min-height: 64px;
       resize: vertical;
-      background: var(--bg3);
-      border: 1px solid var(--border);
+      background: rgba(15, 23, 42, 0.65);
+      border: 1px solid rgba(255, 255, 255, 0.14);
       border-radius: 6px;
       color: var(--text);
       font-size: 12px;
@@ -654,23 +815,24 @@
     }
     .webhook-headers-input:focus {
       border-color: var(--blue);
+      box-shadow: 0 0 0 1px rgba(59, 130, 246, 0.25);
     }
     .webhook-detail-help {
       font-size: 10px;
       color: var(--text3);
       line-height: 1.35;
     }
-    .webhook-detail-foot {
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-      gap: 8px;
-    }
-    .webhook-test-btn {
+    .webhook-target-test-btn {
       min-width: 54px;
       font-size: 11px;
       font-weight: 700;
       letter-spacing: 0.3px;
+      color: #bfdbfe;
+      border-color: rgba(59, 130, 246, 0.38);
+      background: rgba(59, 130, 246, 0.12);
+    }
+    .webhook-target-test-btn:hover {
+      background: rgba(59, 130, 246, 0.2);
     }
     .settings-desc a {
       color: var(--blue);
@@ -826,42 +988,15 @@
     </div>
     <div class="settings-section">
       <div class="shortcut-head webhook-head">
-        <div class="settings-title" data-i18n="popup_settings_webhook_title">Webhook</div>
-        <div class="webhook-help-inline" data-i18n="popup_settings_webhook_help">
-          When you copy in Share format, this sends ai/json/plain payloads to the webhook.
-        </div>
-      </div>
-      <div class="webhook-stack">
-        <label class="webhook-enable" for="webhookEnabledInput">
-          <input id="webhookEnabledInput" type="checkbox" />
-          <span data-i18n="popup_settings_webhook_enabled">Enable webhook</span>
-        </label>
-        <input
-          class="webhook-url-input"
-          id="webhookUrlInput"
-          type="url"
-          placeholder="https://your-server.example/webhook"
-          data-i18n-placeholder="popup_settings_webhook_url_placeholder"
-        />
-        <div class="webhook-actions">
-          <button class="icon-btn" id="saveWebhookBtn" data-i18n="popup_settings_webhook_save">Save webhook</button>
-          <button class="icon-btn" id="webhookDetailToggleBtn" data-i18n="popup_settings_webhook_detail_toggle">Detail settings</button>
-        </div>
-        <div class="webhook-detail-panel" id="webhookDetailPanel" hidden>
-          <label class="webhook-field-label" for="webhookHeadersInput" data-i18n="popup_settings_webhook_headers_label">Custom headers</label>
-          <textarea
-            class="webhook-headers-input"
-            id="webhookHeadersInput"
-            placeholder="X-API-Key: your-token&#10;X-Workspace: Agentation"
-            data-i18n-placeholder="popup_settings_webhook_headers_placeholder"
-          ></textarea>
-          <div class="webhook-detail-foot">
-            <div class="webhook-detail-help" data-i18n="popup_settings_webhook_headers_help">
-              One header per line in Header-Name: value format.
-            </div>
-            <button class="icon-btn webhook-test-btn" id="webhookTestBtn" data-i18n="popup_settings_webhook_test_button">TEST</button>
+        <div class="webhook-head-main">
+          <div class="settings-title" data-i18n="popup_settings_webhook_title">Webhook</div>
+          <div class="webhook-help-inline" data-i18n="popup_settings_webhook_help">
+            When you copy in Share format, this sends ai/json/plain payloads to the webhook.
           </div>
         </div>
+      </div>
+      <div class="webhook-open-actions">
+        <button class="icon-btn" id="openWebhookPageBtn" data-i18n="popup_settings_webhook_detail_toggle">Detail settings</button>
       </div>
     </div>
     <div class="settings-section">
@@ -870,6 +1005,30 @@
         <span data-i18n="popup_settings_info_developer_line">Developer: Yang Sejin</span><br>
         <a href="https://github.com/Sejin-999" target="_blank" rel="noopener noreferrer">https://github.com/Sejin-999</a><br>
         sejinyang49@gmail.com
+      </div>
+    </div>
+  </div>
+
+  <div class="panel" id="panel-webhook">
+    <div class="settings-section">
+      <div class="webhook-page-head">
+        <div class="settings-title" data-i18n="popup_settings_webhook_title">Webhook</div>
+        <button class="icon-btn" id="webhookBackBtn" data-i18n="popup_settings_webhook_back">Back</button>
+      </div>
+      <div class="webhook-page-subtitle" data-i18n="popup_settings_webhook_help">
+        When you copy in Share format, this sends ai/json/plain payloads to the webhook.
+      </div>
+      <div class="webhook-detail-panel">
+        <div class="webhook-detail-actions">
+          <button class="icon-btn" id="addWebhookTargetBtn" data-i18n="popup_settings_webhook_add_button">Add webhook</button>
+        </div>
+        <div class="webhook-target-empty" id="webhookTargetEmpty" data-i18n="popup_settings_webhook_empty">
+          Add a webhook to start custom routing.
+        </div>
+        <div class="webhook-target-list" id="webhookTargetList"></div>
+        <div class="webhook-detail-help" data-i18n="popup_settings_webhook_headers_help">
+          One header per line in Header-Name: value format.
+        </div>
       </div>
     </div>
   </div>

@@ -45,33 +45,31 @@
   const searchColorPalette = document.getElementById('searchColorPalette');
   const resetHighlightColorsBtn = document.getElementById('resetHighlightColorsBtn');
   const languageSelect = document.getElementById('languageSelect');
-  const webhookEnabledInput = document.getElementById('webhookEnabledInput');
-  const webhookUrlInput = document.getElementById('webhookUrlInput');
-  const saveWebhookBtn = document.getElementById('saveWebhookBtn');
-  const webhookDetailToggleBtn = document.getElementById('webhookDetailToggleBtn');
-  const webhookDetailPanel = document.getElementById('webhookDetailPanel');
-  const webhookHeadersInput = document.getElementById('webhookHeadersInput');
-  const webhookTestBtn = document.getElementById('webhookTestBtn');
+  const openWebhookPageBtn = document.getElementById('openWebhookPageBtn');
+  const webhookBackBtn = document.getElementById('webhookBackBtn');
+  const addWebhookTargetBtn = document.getElementById('addWebhookTargetBtn');
+  const webhookTargetEmpty = document.getElementById('webhookTargetEmpty');
+  const webhookTargetList = document.getElementById('webhookTargetList');
 
   let clearAllDefaultText = '';
   let clearAllDefaultTitle = '';
   let clearAllConfirmArmed = false;
   let clearAllConfirmTimer = null;
   let shortcutPlatform = 'win';
+  let webhookPersistTimer = null;
+  const webhookTestResultByTargetId = new Map();
 
   const HIGHLIGHT_COLOR_STORAGE_KEY = 'agt_highlight_colors';
   const MARKER_VISIBILITY_STORAGE_KEY = 'agt_marker_visibility';
   const WEBHOOK_CONFIG_STORAGE_KEY = 'agt_webhook_config';
+  const WEBHOOK_TARGET_LIMIT = 3;
+  const WEBHOOK_MODE_LIST = ['ai', 'json', 'plain'];
 
   const DEFAULT_HIGHLIGHT_COLORS = {
     selected: '#16a34a',
     search: '#d97706'
   };
-  const DEFAULT_WEBHOOK_CONFIG = {
-    enabled: false,
-    url: '',
-    customHeaders: {}
-  };
+  const DEFAULT_WEBHOOK_CONFIG = { targets: [] };
   let webhookConfig = Object.assign({}, DEFAULT_WEBHOOK_CONFIG);
 
   const RECOMMENDED_HIGHLIGHT_COLORS = [
@@ -100,15 +98,20 @@
     return window.__AGT_I18N.t(key, vars, fallback);
   }
 
+  function setActivePanel(panelId) {
+    document.querySelectorAll('.panel').forEach((panel) => panel.classList.remove('active'));
+    const nextPanel = document.getElementById(panelId);
+    if (nextPanel) nextPanel.classList.add('active');
+  }
+
   // ──────────────────────────────────────────
   // 탭 전환
   // ──────────────────────────────────────────
   document.querySelectorAll('.tab').forEach((tab) => {
     tab.addEventListener('click', () => {
       document.querySelectorAll('.tab').forEach((node) => node.classList.remove('active'));
-      document.querySelectorAll('.panel').forEach((panel) => panel.classList.remove('active'));
       tab.classList.add('active');
-      document.getElementById(`panel-${tab.dataset.tab}`).classList.add('active');
+      setActivePanel(`panel-${tab.dataset.tab}`);
 
       if (tab.dataset.tab !== 'search') {
         sendToContent({ type: 'CLEAR_SEARCH' });
@@ -143,14 +146,41 @@
     await sendToContent({ type: 'I18N_REFRESH' });
   });
 
-  saveWebhookBtn.addEventListener('click', async () => {
-    await saveWebhookConfigFromInputs();
+  openWebhookPageBtn.addEventListener('click', () => {
+    setActivePanel('panel-webhook');
   });
-  webhookDetailToggleBtn.addEventListener('click', () => {
-    toggleWebhookDetailPanel();
+  webhookBackBtn.addEventListener('click', () => {
+    setActivePanel('panel-settings');
   });
-  webhookTestBtn.addEventListener('click', async () => {
-    await sendWebhookTestFromInputs();
+  addWebhookTargetBtn.addEventListener('click', () => {
+    addWebhookTargetDraft();
+  });
+  webhookTargetList.addEventListener('click', async (e) => {
+    const testBtn = e.target.closest('[data-action="webhook-test-target"]');
+    if (testBtn) {
+      const index = Number(testBtn.dataset.index);
+      await sendWebhookTestByIndex(index, testBtn);
+      return;
+    }
+
+    const removeBtn = e.target.closest('[data-action="webhook-remove-target"]');
+    if (removeBtn) {
+      const index = Number(removeBtn.dataset.index);
+      removeWebhookTargetDraft(index);
+    }
+  });
+  webhookTargetList.addEventListener('input', () => {
+    scheduleWebhookConfigPersist();
+  });
+  webhookTargetList.addEventListener('change', () => {
+    scheduleWebhookConfigPersist();
+  });
+  webhookTargetList.addEventListener('dblclick', (e) => {
+    const nameEl = e.target.closest('[data-action="webhook-edit-name"]');
+    if (!nameEl) return;
+    const card = nameEl.closest('.webhook-target-card');
+    if (!card) return;
+    beginWebhookNameInlineEdit(card, nameEl);
   });
 
   // ──────────────────────────────────────────
@@ -242,6 +272,7 @@
     setShortcutPlatform(shortcutPlatform, false);
     setMarkerToggleButton(markerToggleBtn.dataset.visible !== '0');
     renderRecommendedColorPalettes();
+    renderWebhookTargetList(webhookConfig);
   }
 
   function populateLanguageOptions(i18nState) {
@@ -371,6 +402,28 @@
     syncPaletteActiveState();
   }
 
+  function formatWebhookTestTimeShort(isoString) {
+    if (!isoString) return '';
+    const date = new Date(isoString);
+    if (Number.isNaN(date.getTime())) return '';
+    const i18nState = window.__AGT_I18N.getState();
+    const locale = i18nState && i18nState.locale && i18nState.locale !== 'auto'
+      ? i18nState.locale
+      : undefined;
+    return date.toLocaleTimeString(locale, { hour: '2-digit', minute: '2-digit' });
+  }
+
+  function formatWebhookTestTimeFull(isoString) {
+    if (!isoString) return '';
+    const date = new Date(isoString);
+    if (Number.isNaN(date.getTime())) return '';
+    const i18nState = window.__AGT_I18N.getState();
+    const locale = i18nState && i18nState.locale && i18nState.locale !== 'auto'
+      ? i18nState.locale
+      : undefined;
+    return date.toLocaleString(locale);
+  }
+
   function renderPaletteForTarget(container, targetKey) {
     container.innerHTML = '';
     RECOMMENDED_HIGHLIGHT_COLORS.forEach((color) => {
@@ -415,6 +468,35 @@
         resolve(result ? result[key] : null);
       });
     });
+  }
+
+  function createWebhookTargetId(index) {
+    const seed = `${Date.now()}_${Math.floor(Math.random() * 100000)}`;
+    return `webhook_${index + 1}_${seed}`;
+  }
+
+  function createDefaultWebhookTarget(index) {
+    return {
+      id: createWebhookTargetId(index),
+      name: `Webhook ${index + 1}`,
+      enabled: false,
+      modes: [],
+      url: '',
+      customHeaders: {}
+    };
+  }
+
+  function isDefaultWebhookName(name, index) {
+    return String(name || '').trim() === `Webhook ${index + 1}`;
+  }
+
+  function isLegacyEmptyWebhookTarget(target, index) {
+    if (!target) return false;
+    if (target.enabled) return false;
+    if (target.modes.length > 0) return false;
+    if (target.url) return false;
+    if (Object.keys(target.customHeaders).length > 0) return false;
+    return isDefaultWebhookName(target.name, index);
   }
 
   function normalizeWebhookUrl(value) {
@@ -472,28 +554,343 @@
     return { ok: true, headers: normalized };
   }
 
-  function normalizeWebhookConfig(config) {
+  function normalizeWebhookModeList(modes) {
+    const incoming = Array.isArray(modes) ? modes : [];
+    const normalized = [];
+    incoming.forEach((mode) => {
+      const raw = String(mode || '').trim().toLowerCase();
+      if (!WEBHOOK_MODE_LIST.includes(raw)) return;
+      if (!normalized.includes(raw)) normalized.push(raw);
+    });
+    return normalized;
+  }
+
+  function normalizeWebhookTarget(target, index) {
+    const fallback = createDefaultWebhookTarget(index);
     return {
-      enabled: !!(config && config.enabled),
-      url: typeof (config && config.url) === 'string' ? config.url.trim() : '',
-      customHeaders: normalizeWebhookHeaders(config && config.customHeaders)
+      id: typeof (target && target.id) === 'string' && target.id.trim() ? target.id.trim() : fallback.id,
+      name: typeof (target && target.name) === 'string' && target.name.trim() ? target.name.trim() : fallback.name,
+      enabled: !!(target && target.enabled),
+      modes: normalizeWebhookModeList(target && target.modes),
+      url: typeof (target && target.url) === 'string' ? target.url.trim() : '',
+      customHeaders: normalizeWebhookHeaders(target && target.customHeaders)
     };
   }
 
-  function toggleWebhookDetailPanel(forceOpen) {
-    const nextOpen = typeof forceOpen === 'boolean'
-      ? forceOpen
-      : webhookDetailPanel.hasAttribute('hidden');
-    webhookDetailPanel.toggleAttribute('hidden', !nextOpen);
-    webhookDetailToggleBtn.setAttribute('aria-expanded', nextOpen ? 'true' : 'false');
+  function normalizeWebhookConfig(config) {
+    // Migrate old single-webhook schema -> first target
+    let incomingTargets = [];
+    if (config && Array.isArray(config.targets)) {
+      incomingTargets = config.targets;
+    } else if (config && (typeof config.url === 'string' || config.customHeaders)) {
+      incomingTargets = [{
+        id: 'webhook_1',
+        name: 'Webhook 1',
+        enabled: !!config.enabled,
+        modes: ['plain'],
+        url: typeof config.url === 'string' ? config.url.trim() : '',
+        customHeaders: normalizeWebhookHeaders(config.customHeaders)
+      }];
+    }
+
+    let normalizedTargets = incomingTargets
+      .slice(0, WEBHOOK_TARGET_LIMIT)
+      .map((target, index) => normalizeWebhookTarget(target, index));
+
+    // migrate previous fixed-3 empty cards into an empty list
+    if (
+      config
+      && Array.isArray(config.targets)
+      && config.targets.length === WEBHOOK_TARGET_LIMIT
+      && normalizedTargets.every((target, index) => isLegacyEmptyWebhookTarget(target, index))
+    ) {
+      normalizedTargets = [];
+    }
+
+    return {
+      targets: normalizedTargets
+    };
+  }
+
+  function updateWebhookDetailControls(config) {
+    const normalized = normalizeWebhookConfig(config);
+    addWebhookTargetBtn.disabled = normalized.targets.length >= WEBHOOK_TARGET_LIMIT;
+    webhookTargetEmpty.hidden = normalized.targets.length > 0;
+  }
+
+  function addWebhookTargetDraft() {
+    const normalized = normalizeWebhookConfig(webhookConfig);
+    if (normalized.targets.length >= WEBHOOK_TARGET_LIMIT) {
+      showToast(t('popup_toast_webhook_target_limit', null, 'You can add up to 3 webhooks'));
+      return;
+    }
+
+    normalized.targets.push(createDefaultWebhookTarget(normalized.targets.length));
+    webhookConfig = normalized;
+    renderWebhookTargetList(webhookConfig);
+    scheduleWebhookConfigPersist();
+  }
+
+  function removeWebhookTargetDraft(index) {
+    const normalized = normalizeWebhookConfig(webhookConfig);
+    if (!Number.isInteger(index) || index < 0 || index >= normalized.targets.length) return;
+    const removedTarget = normalized.targets[index];
+    if (removedTarget && removedTarget.id) webhookTestResultByTargetId.delete(removedTarget.id);
+    normalized.targets.splice(index, 1);
+    webhookConfig = normalized;
+    renderWebhookTargetList(webhookConfig);
+    scheduleWebhookConfigPersist();
+  }
+
+  function renderWebhookTargetList(config) {
+    const normalized = normalizeWebhookConfig(config);
+    const activeIds = new Set(normalized.targets.map((target) => target.id));
+    Array.from(webhookTestResultByTargetId.keys()).forEach((targetId) => {
+      if (!activeIds.has(targetId)) webhookTestResultByTargetId.delete(targetId);
+    });
+
+    webhookTargetList.innerHTML = normalized.targets.map((target, index) => {
+      const modeSet = new Set(target.modes);
+      const modeAiLabel = t('popup_format_ai', null, 'AI');
+      const modeJsonLabel = t('popup_format_json', null, 'Developer');
+      const modePlainLabel = t('popup_format_plain', null, 'Share');
+      const modeLabel = t('popup_settings_webhook_modes_label', null, 'Modes');
+      const enabledLabel = t('popup_settings_webhook_target_enabled', null, 'Enable this webhook');
+      const headersLabel = t('popup_settings_webhook_headers_label', null, 'Custom headers');
+      const urlPlaceholder = t('popup_settings_webhook_url_placeholder', null, 'https://your-server.example/webhook');
+      const headersPlaceholder = t('popup_settings_webhook_headers_placeholder', null, 'X-API-Key: your-token');
+      const headersValue = formatWebhookHeadersForInput(target.customHeaders);
+      const testLabel = t('popup_settings_webhook_test_button', null, 'TEST');
+      const removeLabel = t('popup_settings_webhook_remove_button', null, 'Remove');
+      const editNameHint = t('popup_settings_webhook_name_edit_hint', null, 'Double-click to edit name');
+      const testResultRaw = webhookTestResultByTargetId.get(target.id);
+      const testStatus = typeof testResultRaw === 'string'
+        ? testResultRaw
+        : (testResultRaw && testResultRaw.status);
+      const testedAt = testResultRaw && typeof testResultRaw === 'object'
+        ? String(testResultRaw.testedAt || '')
+        : '';
+      const testedAtShort = formatWebhookTestTimeShort(testedAt);
+      const testedAtFull = formatWebhookTestTimeFull(testedAt);
+      let statusBadge = '';
+      if (testStatus === 'success') {
+        statusBadge = `
+          <span class="webhook-test-status success" title="${escapeHtml(testedAtFull)}">
+            ${escapeHtml(t('popup_settings_webhook_test_status_success', null, 'Success'))}
+            ${testedAtShort ? `<span class="webhook-test-status-time">${escapeHtml(testedAtShort)}</span>` : ''}
+          </span>
+        `;
+      } else if (testStatus === 'failed') {
+        statusBadge = `
+          <span class="webhook-test-status failed" title="${escapeHtml(testedAtFull)}">
+            ${escapeHtml(t('popup_settings_webhook_test_status_failed', null, 'Failed'))}
+            ${testedAtShort ? `<span class="webhook-test-status-time">${escapeHtml(testedAtShort)}</span>` : ''}
+          </span>
+        `;
+      }
+
+      return `
+        <div class="webhook-target-card" data-index="${index}" data-id="${escapeHtml(target.id)}" data-name="${escapeHtml(target.name)}">
+          <div class="webhook-target-head">
+            <div class="webhook-target-title-wrap">
+              <span class="webhook-target-title webhook-target-name-display" data-action="webhook-edit-name" data-index="${index}" title="${escapeHtml(editNameHint)}">${escapeHtml(target.name)}</span>
+              ${statusBadge}
+            </div>
+            <div class="webhook-target-head-actions">
+              <button class="icon-btn webhook-target-test-btn" data-action="webhook-test-target" data-index="${index}">${escapeHtml(testLabel)}</button>
+              <button class="icon-btn" data-action="webhook-remove-target" data-index="${index}">${escapeHtml(removeLabel)}</button>
+            </div>
+          </div>
+          <div class="webhook-field-label">${escapeHtml(modeLabel)}</div>
+          <div class="webhook-target-modes">
+            <label class="webhook-mode-chip">
+              <input class="webhook-target-mode" data-mode="ai" type="checkbox" ${modeSet.has('ai') ? 'checked' : ''} />
+              <span>${escapeHtml(modeAiLabel)}</span>
+            </label>
+            <label class="webhook-mode-chip">
+              <input class="webhook-target-mode" data-mode="json" type="checkbox" ${modeSet.has('json') ? 'checked' : ''} />
+              <span>${escapeHtml(modeJsonLabel)}</span>
+            </label>
+            <label class="webhook-mode-chip">
+              <input class="webhook-target-mode" data-mode="plain" type="checkbox" ${modeSet.has('plain') ? 'checked' : ''} />
+              <span>${escapeHtml(modePlainLabel)}</span>
+            </label>
+          </div>
+          <input
+            class="webhook-target-url-input"
+            type="url"
+            value="${escapeHtml(target.url)}"
+            placeholder="${escapeHtml(urlPlaceholder)}"
+          />
+          <label class="webhook-field-label">${escapeHtml(headersLabel)}</label>
+          <textarea
+            class="webhook-headers-input webhook-target-headers"
+            placeholder="${escapeHtml(headersPlaceholder)}"
+          >${escapeHtml(headersValue)}</textarea>
+          <label class="webhook-enable webhook-target-toggle">
+            <input class="webhook-target-enabled" type="checkbox" ${target.enabled ? 'checked' : ''} />
+            <span>${escapeHtml(enabledLabel)}</span>
+          </label>
+        </div>
+      `;
+    }).join('');
+    updateWebhookDetailControls(normalized);
+  }
+
+  function setWebhookTargetNameDraft(index, name) {
+    const normalized = normalizeWebhookConfig(webhookConfig);
+    if (!Number.isInteger(index) || index < 0 || index >= normalized.targets.length) return;
+    const nextName = String(name || '').trim() || `Webhook ${index + 1}`;
+    normalized.targets[index].name = nextName;
+    webhookConfig = normalized;
+    renderWebhookTargetList(webhookConfig);
+    scheduleWebhookConfigPersist();
+  }
+
+  function beginWebhookNameInlineEdit(card, nameEl) {
+    if (!card || !nameEl) return;
+    if (card.dataset.nameEditing === '1') return;
+
+    const index = Number(card.dataset.index);
+    if (!Number.isInteger(index) || index < 0) return;
+
+    const currentName = String(card.dataset.name || nameEl.textContent || '').trim() || `Webhook ${index + 1}`;
+    card.dataset.nameEditing = '1';
+
+    const input = document.createElement('input');
+    input.type = 'text';
+    input.className = 'webhook-target-name-inline-input';
+    input.value = currentName;
+    input.setAttribute('aria-label', t('popup_settings_webhook_name_label', null, 'Name'));
+    input.setAttribute('maxlength', '80');
+    nameEl.replaceWith(input);
+
+    input.focus();
+    input.setSelectionRange(input.value.length, input.value.length);
+
+    let resolved = false;
+    const finish = (shouldCommit) => {
+      if (resolved) return;
+      resolved = true;
+      card.dataset.nameEditing = '0';
+      if (shouldCommit) {
+        setWebhookTargetNameDraft(index, input.value);
+      } else {
+        renderWebhookTargetList(webhookConfig);
+      }
+    };
+
+    input.addEventListener('keydown', (event) => {
+      event.stopPropagation();
+      if (event.key === 'Enter') {
+        event.preventDefault();
+        finish(true);
+        return;
+      }
+      if (event.key === 'Escape') {
+        event.preventDefault();
+        finish(false);
+      }
+    });
+    input.addEventListener('input', (event) => {
+      event.stopPropagation();
+    });
+    input.addEventListener('blur', () => {
+      finish(true);
+    });
+  }
+
+  function parseWebhookTargetFromCard(card, index) {
+    const enabledInput = card.querySelector('.webhook-target-enabled');
+    const urlInput = card.querySelector('.webhook-target-url-input');
+    const headersInput = card.querySelector('.webhook-target-headers');
+    const modeInputs = Array.from(card.querySelectorAll('.webhook-target-mode'));
+
+    const name = typeof card.dataset.name === 'string' ? card.dataset.name.trim() : '';
+    const enabled = !!(enabledInput && enabledInput.checked);
+    const rawUrl = urlInput ? urlInput.value.trim() : '';
+    const normalizedUrl = normalizeWebhookUrl(rawUrl);
+    const modes = modeInputs
+      .filter((input) => input.checked)
+      .map((input) => String(input.dataset.mode || '').trim().toLowerCase())
+      .filter((mode, idx, arr) => WEBHOOK_MODE_LIST.includes(mode) && arr.indexOf(mode) === idx);
+    const parsedHeaders = parseWebhookHeadersInput(headersInput ? headersInput.value : '');
+
+    if (!parsedHeaders.ok) {
+      return { ok: false, errorType: 'invalid_headers', focusEl: headersInput };
+    }
+
+    const target = normalizeWebhookTarget({
+      id: card.dataset.id || '',
+      name: name || `Webhook ${index + 1}`,
+      enabled,
+      modes,
+      url: normalizedUrl || rawUrl,
+      customHeaders: parsedHeaders.headers
+    }, index);
+
+    return {
+      ok: true,
+      target,
+      rawUrl,
+      normalizedUrl,
+      modes,
+      focusUrlEl: urlInput,
+      focusModeEl: modeInputs[0] || card
+    };
+  }
+
+  function collectWebhookTargetsFromForm(validateEnabledTargets) {
+    const cards = Array.from(webhookTargetList.querySelectorAll('.webhook-target-card'));
+    const targets = [];
+
+    if (cards.length > WEBHOOK_TARGET_LIMIT) {
+      return { ok: false, errorType: 'target_limit', focusEl: addWebhookTargetBtn };
+    }
+    if (validateEnabledTargets && cards.length === 0) {
+      return { ok: false, errorType: 'no_target', focusEl: addWebhookTargetBtn };
+    }
+
+    for (let index = 0; index < cards.length; index += 1) {
+      const card = cards[index];
+      const parsed = parseWebhookTargetFromCard(card, index);
+      if (!parsed.ok) return parsed;
+
+      if (validateEnabledTargets && parsed.target.enabled) {
+        if (!parsed.modes.length) {
+          return { ok: false, errorType: 'invalid_mode', focusEl: parsed.focusModeEl };
+        }
+        if (!parsed.normalizedUrl) {
+          return { ok: false, errorType: 'invalid_url', focusEl: parsed.focusUrlEl };
+        }
+        parsed.target.url = parsed.normalizedUrl;
+      }
+
+      targets.push(parsed.target);
+    }
+
+    return { ok: true, targets };
+  }
+
+  function getWebhookValidationMessage(errorType) {
+    if (errorType === 'target_limit') {
+      return t('popup_toast_webhook_target_limit', null, 'You can add up to 3 webhooks');
+    }
+    if (errorType === 'no_target') {
+      return t('popup_toast_webhook_no_target', null, 'Add at least one webhook');
+    }
+    if (errorType === 'invalid_mode') {
+      return t('popup_toast_webhook_invalid_mode', null, 'Select at least one webhook mode');
+    }
+    if (errorType === 'invalid_headers') {
+      return t('popup_toast_webhook_invalid_headers', null, 'Invalid webhook headers format');
+    }
+    return t('popup_toast_webhook_invalid_url', null, 'Invalid webhook URL');
   }
 
   function applyWebhookConfigToForm(config) {
     const normalized = normalizeWebhookConfig(config);
-    webhookEnabledInput.checked = normalized.enabled;
-    webhookUrlInput.value = normalized.url;
-    webhookHeadersInput.value = formatWebhookHeadersForInput(normalized.customHeaders);
-    toggleWebhookDetailPanel(Object.keys(normalized.customHeaders).length > 0);
+    renderWebhookTargetList(normalized);
   }
 
   async function initWebhookConfigPreference() {
@@ -502,57 +899,56 @@
     applyWebhookConfigToForm(webhookConfig);
   }
 
-  async function saveWebhookConfigFromInputs() {
-    const enabled = !!webhookEnabledInput.checked;
-    const rawUrl = webhookUrlInput.value.trim();
-    const normalizedUrl = normalizeWebhookUrl(rawUrl);
-    const parsedHeaders = parseWebhookHeadersInput(webhookHeadersInput.value);
+  function scheduleWebhookConfigPersist() {
+    clearTimeout(webhookPersistTimer);
+    webhookPersistTimer = setTimeout(() => {
+      void persistWebhookConfigFromForm(false);
+    }, 250);
+  }
 
-    if (enabled && !normalizedUrl) {
-      showToast(t('popup_toast_webhook_invalid_url', null, 'Invalid webhook URL'));
-      webhookUrlInput.focus();
+  async function persistWebhookConfigFromForm(shouldToastErrors) {
+    const collected = collectWebhookTargetsFromForm(false);
+    if (!collected.ok) {
+      if (shouldToastErrors) showToast(getWebhookValidationMessage(collected.errorType));
+      if (shouldToastErrors && collected.focusEl && typeof collected.focusEl.focus === 'function') {
+        collected.focusEl.focus();
+      }
       return false;
     }
-    if (!parsedHeaders.ok) {
-      showToast(t('popup_toast_webhook_invalid_headers', null, 'Invalid webhook headers format'));
-      webhookHeadersInput.focus();
-      return false;
-    }
 
-    webhookConfig = {
-      enabled,
-      url: normalizedUrl || rawUrl,
-      customHeaders: parsedHeaders.headers
-    };
-    webhookHeadersInput.value = formatWebhookHeadersForInput(webhookConfig.customHeaders);
+    webhookConfig = normalizeWebhookConfig({
+      targets: collected.targets
+    });
 
     chrome.storage.local.set({
       [WEBHOOK_CONFIG_STORAGE_KEY]: webhookConfig
     });
 
-    showToast(t('popup_toast_webhook_saved', null, 'Webhook settings saved'));
     return true;
   }
 
-  async function sendWebhookTestFromInputs() {
-    const rawUrl = webhookUrlInput.value.trim();
-    const webhookUrl = normalizeWebhookUrl(rawUrl);
-    const parsedHeaders = parseWebhookHeadersInput(webhookHeadersInput.value);
+  async function sendWebhookTestByIndex(index, buttonEl) {
+    if (!Number.isInteger(index) || index < 0 || index >= WEBHOOK_TARGET_LIMIT) return;
+    const card = webhookTargetList.querySelector(`.webhook-target-card[data-index="${index}"]`);
+    if (!card) return;
 
-    if (!webhookUrl) {
-      showToast(t('popup_toast_webhook_invalid_url', null, 'Invalid webhook URL'));
-      webhookUrlInput.focus();
+    const parsed = parseWebhookTargetFromCard(card, index);
+    if (!parsed.ok) {
+      showToast(t('popup_toast_webhook_invalid_headers', null, 'Invalid webhook headers format'));
+      if (parsed.focusEl && typeof parsed.focusEl.focus === 'function') parsed.focusEl.focus();
       return;
     }
-    if (!parsedHeaders.ok) {
-      showToast(t('popup_toast_webhook_invalid_headers', null, 'Invalid webhook headers format'));
-      webhookHeadersInput.focus();
+
+    if (!parsed.normalizedUrl) {
+      showToast(t('popup_toast_webhook_invalid_url', null, 'Invalid webhook URL'));
+      if (parsed.focusUrlEl && typeof parsed.focusUrlEl.focus === 'function') parsed.focusUrlEl.focus();
       return;
     }
 
     const i18nState = window.__AGT_I18N.getState();
     const payload = {
       event: 'agentation.webhook_test',
+      webhookTarget: parsed.target.name || `Webhook ${index + 1}`,
       message: 'webhook test from popup',
       meta: {
         url: currentState.url || '',
@@ -561,32 +957,70 @@
       }
     };
 
-    webhookTestBtn.disabled = true;
+    buttonEl.disabled = true;
+    let testStatus = 'failed';
     try {
-      const response = await fetch(webhookUrl, {
+      const response = await fetch(parsed.normalizedUrl, {
         method: 'POST',
-        headers: Object.assign({ 'Content-Type': 'application/json' }, parsedHeaders.headers),
+        headers: Object.assign({ 'Content-Type': 'application/json' }, parsed.target.customHeaders),
         body: JSON.stringify(payload)
       });
+      testStatus = response.ok ? 'success' : 'failed';
       showToast(response.ok
         ? t('popup_toast_webhook_test_sent', null, 'Webhook test sent')
         : t('popup_toast_webhook_test_failed', null, 'Webhook test failed'));
     } catch (_err) {
+      testStatus = 'failed';
       showToast(t('popup_toast_webhook_test_failed', null, 'Webhook test failed'));
     } finally {
-      webhookTestBtn.disabled = false;
+      if (parsed.target.id) {
+        webhookTestResultByTargetId.set(parsed.target.id, {
+          status: testStatus,
+          testedAt: new Date().toISOString()
+        });
+      }
+      if (buttonEl && buttonEl.isConnected) buttonEl.disabled = false;
+      renderWebhookTargetList(webhookConfig);
     }
   }
 
   async function sendWebhookIfNeeded(triggeredFormat) {
-    if (triggeredFormat !== 'plain') return 'skipped';
+    if (!WEBHOOK_MODE_LIST.includes(triggeredFormat)) return 'skipped';
 
-    const config = normalizeWebhookConfig(webhookConfig);
-    if (!config.enabled) return 'skipped';
+    const currentConfigCollected = collectWebhookTargetsFromForm(true);
+    if (!currentConfigCollected.ok) {
+      if (currentConfigCollected.errorType === 'no_target') return 'skipped';
+      if (currentConfigCollected.errorType === 'invalid_headers') return 'invalid_headers';
+      if (currentConfigCollected.errorType === 'invalid_mode') return 'invalid_mode';
+      return 'invalid_url';
+    }
+    const config = normalizeWebhookConfig({ targets: currentConfigCollected.targets });
+    webhookConfig = config;
+    chrome.storage.local.set({
+      [WEBHOOK_CONFIG_STORAGE_KEY]: webhookConfig
+    });
+    const matchedTargets = config.targets.filter((target) => (
+      target.enabled && target.modes.includes(triggeredFormat)
+    ));
+    if (!matchedTargets.length) return 'skipped';
 
-    const webhookUrl = normalizeWebhookUrl(config.url);
-    if (!webhookUrl) return 'invalid_url';
-    const customHeaders = normalizeWebhookHeaders(config.customHeaders);
+    const validTargets = [];
+    let invalidTargetFound = false;
+    matchedTargets.forEach((target) => {
+      const webhookUrl = normalizeWebhookUrl(target.url);
+      if (!webhookUrl) {
+        invalidTargetFound = true;
+        return;
+      }
+      validTargets.push({
+        id: target.id,
+        name: target.name,
+        url: webhookUrl,
+        customHeaders: normalizeWebhookHeaders(target.customHeaders)
+      });
+    });
+
+    if (!validTargets.length) return 'invalid_url';
 
     const [ai, json, plain] = await Promise.all([
       sendToContent({ type: 'GET_EXPORT', payload: { format: 'ai' } }),
@@ -601,7 +1035,7 @@
     const i18nState = window.__AGT_I18N.getState();
     const payload = {
       event: 'agentation.export',
-      triggeredFormat: 'plain',
+      triggeredFormat,
       exports: {
         ai: ai.data,
         json: json.data,
@@ -615,16 +1049,31 @@
       }
     };
 
-    try {
-      const response = await fetch(webhookUrl, {
+    const results = await Promise.allSettled(validTargets.map(async (target) => {
+      const response = await fetch(target.url, {
         method: 'POST',
-        headers: Object.assign({ 'Content-Type': 'application/json' }, customHeaders),
-        body: JSON.stringify(payload)
+        headers: Object.assign({ 'Content-Type': 'application/json' }, target.customHeaders),
+        body: JSON.stringify(Object.assign({}, payload, {
+          webhookTarget: {
+            id: target.id,
+            name: target.name
+          }
+        }))
       });
-      return response.ok ? 'sent' : 'request_failed';
-    } catch (_err) {
-      return 'request_failed';
-    }
+      return response.ok;
+    }));
+
+    let sentCount = 0;
+    let failedCount = 0;
+    results.forEach((result) => {
+      if (result.status === 'fulfilled' && result.value) sentCount += 1;
+      else failedCount += 1;
+    });
+
+    if (sentCount > 0 && failedCount === 0 && !invalidTargetFound) return 'sent';
+    if (sentCount > 0) return 'partial';
+    if (invalidTargetFound && failedCount === 0) return 'invalid_url';
+    return 'request_failed';
   }
 
   async function initHighlightColorPreference() {
@@ -996,8 +1445,20 @@
       showToast(`${copiedMsg} · ${t('popup_toast_webhook_sent', null, 'Webhook sent')}`);
       return;
     }
+    if (webhookStatus === 'partial') {
+      showToast(`${copiedMsg} · ${t('popup_toast_webhook_partial', null, 'Webhook partially sent')}`);
+      return;
+    }
     if (webhookStatus === 'invalid_url') {
       showToast(`${copiedMsg} · ${t('popup_toast_webhook_invalid_url', null, 'Invalid webhook URL')}`);
+      return;
+    }
+    if (webhookStatus === 'invalid_mode') {
+      showToast(`${copiedMsg} · ${t('popup_toast_webhook_invalid_mode', null, 'Select at least one webhook mode')}`);
+      return;
+    }
+    if (webhookStatus === 'invalid_headers') {
+      showToast(`${copiedMsg} · ${t('popup_toast_webhook_invalid_headers', null, 'Invalid webhook headers format')}`);
       return;
     }
     if (webhookStatus === 'export_failed') {
